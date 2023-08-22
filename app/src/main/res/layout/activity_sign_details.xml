@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/detailsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="50dp"
+        android:text="Details"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/capturedSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="35dp"
+        android:text="Captured Image"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/detailsTitle" />
+
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/media_container"
+        android:layout_width="171dp"
+        android:layout_height="305dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/capturedSubtitle"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="25dp"
+        android:name="com.sngtech.signconnect.fragments.HomeFragment" />
+
+    <TextView
+        android:id="@+id/capturedSubtitle2"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="30dp"
+        android:text="Sign Language Result:"
+        android:textSize="20sp"
+        android:textStyle="normal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/media_container" />
+
+    <TextView
+        android:id="@+id/capturedResult"
+        android:layout_width="wrap_content"
+        android:layout_height="0dp"
+        android:layout_marginStart="30dp"
+        android:layout_marginTop="15dp"
+        android:text="Letter S"
+        android:textSize="30sp"
+        android:textStyle="normal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/capturedSubtitle2" />
+
+    <TextView
+        android:id="@+id/txtToSpeech"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Text to Speech: "
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="@+id/capturedResult"
+        app:layout_constraintTop_toBottomOf="@+id/capturedResult" />
+
+    <TextView
+        android:id="@+id/datetime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Captured on: "
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="@+id/txtToSpeech"
+        app:layout_constraintTop_toBottomOf="@+id/txtToSpeech" />
+
+    <ImageButton
+        android:id="@+id/btnTTS"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="5dp"
+        android:layout_marginTop="10dp"
+        android:background="#00FFFFFF"
+        android:contentDescription="tts"
+        android:visibility="visible"
+        app:layout_constraintStart_toEndOf="@+id/txtToSpeech"
+        app:layout_constraintTop_toBottomOf="@+id/capturedResult"
+        app:tint="@color/dark_primary"
+        android:src="@drawable/text_to_speech" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

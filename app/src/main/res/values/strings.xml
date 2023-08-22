@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sign Connect</string>
+    <string name="home_page_text">
+        Welcome to <b>Sign Connect!</b>\n
+        Click on <b>Capture</b> to Begin
+    </string>
+    <string name="signup_link"><u>Sign Up Here!</u></string>
+    <string name="login_link"><u>Log In Here!</u></string>
+
+    <!-- Test Array for History -->
+    <string-array name="history_results_array">
+        <item>A</item>
+        <item>S</item>
+        <item>L</item>
+    </string-array>
+
+    <string-array name="history_results_word_array">
+        <item>What</item>
+        <item>Apple</item>
+    </string-array>
+
+</resources>

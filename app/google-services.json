@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "37692067666",
+    "project_id": "sign-connect-36d4b",
+    "storage_bucket": "sign-connect-36d4b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37692067666:android:09f7d556e673aa3f27348b",
+        "android_client_info": {
+          "package_name": "com.sngtech.signconnect"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "37692067666-ji60bqgmn4vl8hspo0jl8kg1ketq42fq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDigc11-ny6fSUj-vtGVoXj5gGGob_90E8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "37692067666-ji60bqgmn4vl8hspo0jl8kg1ketq42fq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

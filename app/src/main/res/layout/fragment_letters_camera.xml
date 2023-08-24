@@ -11,13 +11,22 @@
         android:layout_height="match_parent"
         android:id="@+id/previewView" />
 
+    <com.sngtech.signconnect.views.DetectionBoxView
+        android:id="@+id/boxDetectionView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/previewView"
+        app:layout_constraintEnd_toEndOf="@+id/previewView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <Button
         android:id="@+id/btnDetect"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="20dp"
         android:elevation="9dp"
-        android:text="Detect"
+        android:text="View More"
         android:textColor="#FFFFFF"
         android:textColorHighlight="#000000"
         android:textCursorDrawable="@color/white"

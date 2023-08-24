@@ -2,9 +2,9 @@ package com.sngtech.signconnect.fragments;
 
 import android.Manifest;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,8 +18,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.extensions.ExtensionMode;
 import androidx.camera.extensions.ExtensionsManager;
@@ -29,19 +30,27 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.sngtech.signconnect.HistoryActivity;
-import com.sngtech.signconnect.R;
 import com.sngtech.signconnect.SignDetailsActivity;
 import com.sngtech.signconnect.databinding.FragmentLettersCameraBinding;
 import com.sngtech.signconnect.recyclerViews.HistoryItem;
+import com.sngtech.signconnect.utils.ObjectDetectorHelper;
 
-import java.io.File;
-import java.time.LocalDateTime;
+import org.tensorflow.lite.task.gms.vision.detector.Detection;
+
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 
 @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-public class LetterCameraFragment extends Fragment {
+public class LetterCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener {
+
+    private static final String[] REQUIRED_PERMISSIONS = new String[] {
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+    };
 
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ListenableFuture<ExtensionsManager> extensionsManagerFuture;
@@ -50,14 +59,10 @@ public class LetterCameraFragment extends Fragment {
 
     private ImageCapture imageCapture;
 
-    // TODO: TEMPORARY
-    public static int captureCount = 0;
+    private ObjectDetectorHelper objectDetectorHelper;
+    private Bitmap bitmap;
 
-    private static final String[] REQUIRED_PERMISSIONS = new String[] {
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.READ_MEDIA_IMAGES
-    };
+    private ExecutorService cameraExecutor;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
@@ -71,7 +76,12 @@ public class LetterCameraFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        requestPermissions();
+
+        objectDetectorHelper = new ObjectDetectorHelper(this.getContext(), 4, 0.4f, 3, this);
+
+        objectDetectorHelper.setup();
+        requestPermissionsAndStart();
+        binding.boxDetectionView.clear();
 
         binding.btnDetect.setOnClickListener(ignore -> {
             onCapture();
@@ -95,7 +105,7 @@ public class LetterCameraFragment extends Fragment {
                 }
             });
 
-    void requestPermissions() {
+    void requestPermissionsAndStart() {
         requestPermissionsLauncher.launch(REQUIRED_PERMISSIONS);
     }
 
@@ -109,7 +119,33 @@ public class LetterCameraFragment extends Fragment {
                 .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .build();
 
-        cameraProvider.bindToLifecycle(this, selector, preview, imageCapture);
+        ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetRotation(binding.previewView.getDisplay().getRotation())
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .build();
+
+        imageAnalyzer.setAnalyzer(
+                ContextCompat.getMainExecutor(requireContext()),
+                image -> {
+                    bitmap = Bitmap.createBitmap(
+                            image.getWidth(),
+                            image.getHeight(),
+                            Bitmap.Config.ARGB_8888
+                    );
+                    detectHandSigns(image, bitmap);
+                    image.close();
+                }
+        );
+
+        cameraProvider.bindToLifecycle(this, selector, imageAnalyzer, preview, imageCapture);
+    }
+
+    private void detectHandSigns(ImageProxy image, Bitmap bitmap) {
+        bitmap.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
+        int imageRotation = image.getImageInfo().getRotationDegrees();
+        objectDetectorHelper.runDetection(bitmap, imageRotation);
     }
 
     void startCamera() {
@@ -141,38 +177,36 @@ public class LetterCameraFragment extends Fragment {
     }
 
     private void onCapture() {
-        String[] resultsArr = getResources().getStringArray(R.array.history_results_array);
-        HistoryItem item = new HistoryItem(
-                resultsArr[captureCount],
-                HistoryItem.SignType.LETTER);
-
-        String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
-        String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
-
-        File path = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES);
-
-        try {
-            path.mkdirs();
-        } catch(Exception e) {
-            Log.println(Log.WARN, "warning", "Pictures directory already exists!");
-        }
-
-        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(new File(getContext().getExternalFilesDir(
-                Environment.DIRECTORY_PICTURES), fileName)).build();
-        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
-            @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                item.setCapturedPath(outputFileResults.getSavedUri().getPath());
-                HistoryActivity.historyItemList.add(item);
-                switchToDetailsActivity(item);
-            }
-
-            @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-                Toast.makeText(getContext(), "Unknown Error: Unable to capture image for detection!", Toast.LENGTH_SHORT).show();
-            }
-        });
+//        String[] resultsArr = getResources().getStringArray(R.array.history_results_array);
+//
+//
+//        String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
+//        String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
+//
+//        File path = Environment.getExternalStoragePublicDirectory(
+//                Environment.DIRECTORY_PICTURES);
+//
+//        try {
+//            path.mkdirs();
+//        } catch(Exception e) {
+//            Log.println(Log.WARN, "warning", "Pictures directory already exists!");
+//        }
+//
+//        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(new File(getContext().getExternalFilesDir(
+//                Environment.DIRECTORY_PICTURES), fileName)).build();
+//        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
+//            @Override
+//            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+//                item.setCapturedPath(outputFileResults.getSavedUri().getPath());
+//                HistoryActivity.historyItemList.add(item);
+//                switchToDetailsActivity(item);
+//            }
+//
+//            @Override
+//            public void onError(@NonNull ImageCaptureException exception) {
+//                Toast.makeText(getContext(), "Unknown Error: Unable to capture image for detection!", Toast.LENGTH_SHORT).show();
+//            }
+//        });
     }
 
     private void switchToDetailsActivity(HistoryItem item) {
@@ -184,10 +218,26 @@ public class LetterCameraFragment extends Fragment {
         detailsBundle.putString("capturedPath", item.getCapturedPath());
         newIntent.putExtras(detailsBundle);
 
-        captureCount++;
-        if(captureCount >= 3)
-            captureCount = 0;
-
         startActivity(newIntent);
+    }
+
+//    private void storeHistoryItem() {
+//        HistoryItem item = new HistoryItem(
+//                resultsArr[captureCount],
+//                HistoryItem.SignType.LETTER);
+//    }
+
+    @Override
+    public void onResult(List<Detection> results, int imgWidth, int imgHeight) {
+        Log.println(Log.INFO, "results_debugger_info", results.toString());
+        getActivity().runOnUiThread(() -> {
+            if(results.isEmpty())
+                binding.btnDetect.setVisibility(View.INVISIBLE);
+            else
+                binding.btnDetect.setVisibility(View.VISIBLE);
+
+            binding.boxDetectionView.setResults(results, imgWidth, imgHeight);
+            binding.boxDetectionView.invalidate();
+        });
     }
 }

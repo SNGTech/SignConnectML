@@ -7,4 +7,6 @@
     <color name="text_account">#CCB3B3</color>
     <color name="historyViewTypeBg">#5E2C29</color>
     <color name="historyViewCardBg">#2E1E1E</color>
+    <color name="bounding_box_color">#FF5722</color>
+    <color name="detection_box_color">#2596BE</color>
 </resources>

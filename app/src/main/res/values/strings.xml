@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Sign Connect</string>
+    <string name="app_name">Sign Connect ML</string>
     <string name="home_page_text">
         Welcome to <b>Sign Connect!</b>\n
         Click on <b>Capture</b> to Begin

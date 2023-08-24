@@ -1,5 +1,9 @@
 plugins {
     id("com.android.application")
+
+    // Add the dependency for the Google services Gradle plugin
+    id("com.google.gms.google-services")
+
 }
 
 android {
@@ -70,4 +74,11 @@ dependencies {
 
     implementation("org.tensorflow:tensorflow-lite-task-vision-play-services:0.4.2")
     implementation("com.google.android.gms:play-services-tflite-gpu:16.1.0")
+
+    // Import the BoM for the Firebase platform
+    implementation(platform("com.google.firebase:firebase-bom:32.2.2"))
+
+    // Add the dependency for the Firebase Authentication library
+    // When using the BoM, you don't specify versions in Firebase library dependencies
+    implementation("com.google.firebase:firebase-auth")
 }

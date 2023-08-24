@@ -13,6 +13,7 @@ import com.sngtech.signconnect.databinding.ActivityCaptureBinding;
 import com.sngtech.signconnect.fragments.LetterCameraFragment;
 import com.sngtech.signconnect.fragments.WordsCameraFragment;
 
+@RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
 public class CaptureActivity extends AppCompatActivity {
 
     private ActivityCaptureBinding binding;
@@ -32,10 +33,9 @@ public class CaptureActivity extends AppCompatActivity {
         binding.bottomNavigationView.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
 
-            if(id == R.id.capture_letters) {
+            if (id == R.id.capture_letters) {
                 replaceFragment(new LetterCameraFragment());
-            }
-            else if(id == R.id.capture_words) {
+            } else if (id == R.id.capture_words) {
                 replaceFragment(new WordsCameraFragment());
             }
 

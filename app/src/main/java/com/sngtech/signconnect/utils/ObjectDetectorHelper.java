@@ -4,17 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.Log;
 
-import androidx.camera.core.AspectRatio;
-import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageProxy;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
-
-import com.google.android.gms.common.internal.GmsLogger;
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
-import com.google.mlkit.vision.interfaces.Detector;
-import com.sngtech.signconnect.databinding.ActivityCaptureBinding;
-//import com.sngtech.signconnect.databinding.FragmentCameraBinding;
 
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
@@ -26,26 +16,26 @@ import org.tensorflow.lite.task.gms.vision.detector.ObjectDetector;
 import org.tensorflow.lite.task.gms.vision.detector.ObjectDetector.ObjectDetectorOptions;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 public class ObjectDetectorHelper {
 
-    public static final String LETTER_MODEL_NAME = "signletters_float32.tflite";
+    public static final String LETTER_MODEL_NAME = "signletters_50epoch.tflite";
     public static final String WORD_MODEL_NAME = "";
 
     private Context context;
     private ObjectDetector objectDetector;
+    private ObjectDetectorListener listener;
     private int numThreads;
     private float threshold;
     private int maxResults;
 
-    public ObjectDetectorHelper(Context context, int numThreads, float threshold, int maxResults) {
+    public ObjectDetectorHelper(Context context, int numThreads, float threshold, int maxResults, ObjectDetectorListener listener) {
         this.context = context;
         this.numThreads = numThreads;
         this.threshold = threshold;
         this.maxResults = maxResults;
+        this.listener = listener;
     }
 
     public void setup() {
@@ -84,35 +74,6 @@ public class ObjectDetectorHelper {
         }
     }
 
-//    public ImageAnalysis getAnalyzer(FragmentCameraBinding cameraBinding) {
-//        ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
-//                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-//                .setTargetRotation((int)cameraBinding.previewView.getRotation())
-//                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-//                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-//                .build();
-//
-//        imageAnalyzer.setAnalyzer(
-//                ContextCompat.getMainExecutor(cameraBinding.getRoot().getContext()),
-//                image -> {
-//                    Bitmap bitmap = Bitmap.createBitmap(
-//                            image.getWidth(),
-//                            image.getHeight(),
-//                            Bitmap.Config.ARGB_8888
-//                    );
-//                    detectHandSigns(image, bitmap);
-//                }
-//        );
-//        return imageAnalyzer;
-//    }
-
-    private void detectHandSigns(ImageProxy image, Bitmap bitmap) {
-        bitmap.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
-        int imageRotation = image.getImageInfo().getRotationDegrees();
-        runDetection(bitmap, imageRotation);
-        Log.println(Log.DEBUG, "results_debugger_info", "test");
-    }
-
     public void runDetection(Bitmap bitmap, int rotation) {
         ImageProcessor imageProcessor = new ImageProcessor.Builder()
                 .add(new Rot90Op(-rotation / 90))
@@ -121,6 +82,10 @@ public class ObjectDetectorHelper {
         TensorImage tensorImage = imageProcessor.process(TensorImage.fromBitmap(bitmap));
 
         List<Detection> results = objectDetector.detect(tensorImage);
-        Log.println(Log.DEBUG, "results_debugger_info", results.toString());
+        listener.onResult(results, tensorImage.getWidth(), tensorImage.getHeight());
+    }
+
+    public interface ObjectDetectorListener {
+        void onResult(List<Detection> results, int imgWidth, int imgHeight);
     }
 }

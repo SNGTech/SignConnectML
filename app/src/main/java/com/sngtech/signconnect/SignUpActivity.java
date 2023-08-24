@@ -1,27 +1,31 @@
 package com.sngtech.signconnect;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
-import com.sngtech.signconnect.databinding.ActivityLoginBinding;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
 import com.sngtech.signconnect.databinding.ActivitySignUpBinding;
 
 public class SignUpActivity extends AppCompatActivity {
 
     private ActivitySignUpBinding binding;
 
-    // TEMPORARY UNTIL FIREBASE IS IMPLEMENTED
-    public static String email = "§";
-    public static String password = "§";
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mAuth = FirebaseAuth.getInstance();
 
         binding = ActivitySignUpBinding.inflate(getLayoutInflater());
         View view = binding.getRoot();
@@ -33,11 +37,24 @@ public class SignUpActivity extends AppCompatActivity {
         });
 
         binding.button.setOnClickListener(ignore -> {
-            email = binding.editTextTextEmailAddress.getText().toString();
-            password = binding.editTextTextPassword.getText().toString();
-            Intent newIntent = new Intent(getApplicationContext(), LoginActivity.class);
-            startActivity(newIntent);
-            Toast.makeText(getApplicationContext(), "Sign up successful!", Toast.LENGTH_SHORT).show();
+            String email = binding.editTextTextEmailAddress.getText().toString();
+            String password = binding.editTextTextPassword.getText().toString();
+
+            mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                @Override
+                public void onComplete(@NonNull Task<AuthResult> task) {
+                    if(task.isSuccessful()) {
+                        Log.d("firebaseAuth", "createUserWithEmail:success");
+
+                        Intent newIntent = new Intent(getApplicationContext(), LoginActivity.class);
+                        startActivity(newIntent);
+                        Toast.makeText(getApplicationContext(), "Sign up successful!", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Log.w("firebaseAuth", "createUserWithEmail:failure", task.getException());
+                        Toast.makeText(SignUpActivity.this, "Account signup failed. Please try again", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
         });
     }
 }

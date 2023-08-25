@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,6 +21,7 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.extensions.ExtensionMode;
@@ -30,13 +32,18 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.SignDetailsActivity;
 import com.sngtech.signconnect.databinding.FragmentLettersCameraBinding;
 import com.sngtech.signconnect.recyclerViews.HistoryItem;
+import com.sngtech.signconnect.utils.HistoryModel;
 import com.sngtech.signconnect.utils.ObjectDetectorHelper;
 
 import org.tensorflow.lite.task.gms.vision.detector.Detection;
 
+import java.io.File;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -44,6 +51,8 @@ import java.util.concurrent.ExecutorService;
 
 @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
 public class LetterCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener {
+
+    FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     private static final String[] REQUIRED_PERMISSIONS = new String[] {
             android.Manifest.permission.CAMERA,
@@ -64,6 +73,8 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
 
     private ExecutorService cameraExecutor;
 
+    Detection result;
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -77,7 +88,7 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        objectDetectorHelper = new ObjectDetectorHelper(this.getContext(), 4, 0.4f, 3, this);
+        objectDetectorHelper = new ObjectDetectorHelper(HistoryItem.SignType.LETTER, this.getContext(), 4, 0.4f, 3, this);
 
         objectDetectorHelper.setup();
         requestPermissionsAndStart();
@@ -177,36 +188,36 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
     }
 
     private void onCapture() {
-//        String[] resultsArr = getResources().getStringArray(R.array.history_results_array);
-//
-//
-//        String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
-//        String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
-//
-//        File path = Environment.getExternalStoragePublicDirectory(
-//                Environment.DIRECTORY_PICTURES);
-//
-//        try {
-//            path.mkdirs();
-//        } catch(Exception e) {
-//            Log.println(Log.WARN, "warning", "Pictures directory already exists!");
-//        }
-//
-//        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(new File(getContext().getExternalFilesDir(
-//                Environment.DIRECTORY_PICTURES), fileName)).build();
-//        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
-//            @Override
-//            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-//                item.setCapturedPath(outputFileResults.getSavedUri().getPath());
-//                HistoryActivity.historyItemList.add(item);
-//                switchToDetailsActivity(item);
-//            }
-//
-//            @Override
-//            public void onError(@NonNull ImageCaptureException exception) {
-//                Toast.makeText(getContext(), "Unknown Error: Unable to capture image for detection!", Toast.LENGTH_SHORT).show();
-//            }
-//        });
+        HistoryItem item = new HistoryItem(result.getCategories().get(0).getLabel(), HistoryItem.SignType.LETTER);
+
+        String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
+        String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
+
+        File path = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+
+        try {
+            path.mkdirs();
+        } catch(Exception e) {
+            Log.println(Log.WARN, "warning", "Pictures directory already exists!");
+        }
+
+        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(new File(getContext().getExternalFilesDir(
+                Environment.DIRECTORY_PICTURES), fileName)).build();
+        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                item.setCapturedPath(outputFileResults.getSavedUri().getPath());
+                HistoryModel.addItemtoHistory(FirebaseAuth.getInstance().getCurrentUser(), db, item);
+
+                switchToDetailsActivity(item);
+            }
+
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                Toast.makeText(getContext(), "Unknown Error: Unable to capture image for detection!", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void switchToDetailsActivity(HistoryItem item) {
@@ -221,21 +232,17 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
         startActivity(newIntent);
     }
 
-//    private void storeHistoryItem() {
-//        HistoryItem item = new HistoryItem(
-//                resultsArr[captureCount],
-//                HistoryItem.SignType.LETTER);
-//    }
-
     @Override
     public void onResult(List<Detection> results, int imgWidth, int imgHeight) {
         Log.println(Log.INFO, "results_debugger_info", results.toString());
         getActivity().runOnUiThread(() -> {
-            if(results.isEmpty())
+            if (results.isEmpty())
                 binding.btnDetect.setVisibility(View.INVISIBLE);
             else
                 binding.btnDetect.setVisibility(View.VISIBLE);
 
+            if(results.size() > 0)
+                result = results.get(0);
             binding.boxDetectionView.setResults(results, imgWidth, imgHeight);
             binding.boxDetectionView.invalidate();
         });

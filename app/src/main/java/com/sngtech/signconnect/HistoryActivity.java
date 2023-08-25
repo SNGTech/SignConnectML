@@ -8,15 +8,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.databinding.ActivityHistoryBinding;
 import com.sngtech.signconnect.recyclerViews.HistoryItem;
 import com.sngtech.signconnect.recyclerViews.HistoryRecyclerViewAdapter;
 import com.sngtech.signconnect.recyclerViews.HistoryRecyclerViewListener;
+import com.sngtech.signconnect.utils.HistoryModel;
+import com.sngtech.signconnect.utils.HistoryQueryListener;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class HistoryActivity extends AppCompatActivity implements HistoryRecyclerViewListener {
+public class HistoryActivity extends AppCompatActivity implements HistoryRecyclerViewListener, HistoryQueryListener {
 
     public static List<HistoryItem> historyItemList = new ArrayList<>();
 
@@ -32,24 +36,13 @@ public class HistoryActivity extends AppCompatActivity implements HistoryRecycle
         View view = binding.getRoot();
         setContentView(view);
 
-        //populateHistoryList();
-
-        RecyclerView recyclerView = binding.historyRecyclerView;
-        adapter = new HistoryRecyclerViewAdapter(getApplicationContext(), historyItemList, this);
-        recyclerView.setAdapter(adapter);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        populateHistoryList();
     }
 
-//    private void populateHistoryList() {
-//        String[] resultsArr = getResources().getStringArray(R.array.history_results_array);
-//        String[] datetimeArr = getResources().getStringArray(R.array.history_datetime_array);
-//
-//        historyItemList.clear();
-//        for(int i = 0; i < resultsArr.length; i++) {
-//            HistoryItem item = new HistoryItem(resultsArr[i], datetimeArr[i], HistoryItem.SignType.WORD, null);
-//            historyItemList.add(item);
-//        }
-//    }
+    private void populateHistoryList() {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        HistoryModel.queryHistoryItems(FirebaseAuth.getInstance().getCurrentUser(), db, this);
+    }
 
     @Override
     public void onItemClick(int pos) {
@@ -62,5 +55,17 @@ public class HistoryActivity extends AppCompatActivity implements HistoryRecycle
 
         newIntent.putExtras(detailsBundle);
         startActivity(newIntent);
+    }
+
+    @Override
+    public void onQuerySuccess(List<HistoryItem> queriedItems) {
+        historyItemList.clear();
+        historyItemList.addAll(queriedItems);
+
+        // Show Recycler View
+        RecyclerView recyclerView = binding.historyRecyclerView;
+        adapter = new HistoryRecyclerViewAdapter(getApplicationContext(), historyItemList, this);
+        recyclerView.setAdapter(adapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
     }
 }

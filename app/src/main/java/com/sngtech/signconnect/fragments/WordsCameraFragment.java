@@ -2,6 +2,7 @@ package com.sngtech.signconnect.fragments;
 
 import android.Manifest;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,9 +23,12 @@ import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.camera.camera2.interop.Camera2CameraInfo;
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop;
+import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.extensions.ExtensionMode;
 import androidx.camera.extensions.ExtensionsManager;
@@ -41,11 +45,16 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.sngtech.signconnect.HistoryActivity;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.R;
 import com.sngtech.signconnect.SignDetailsActivity;
 import com.sngtech.signconnect.databinding.FragmentWordsCameraBinding;
 import com.sngtech.signconnect.recyclerViews.HistoryItem;
+import com.sngtech.signconnect.utils.HistoryModel;
+import com.sngtech.signconnect.utils.ObjectDetectorHelper;
+
+import org.tensorflow.lite.task.gms.vision.detector.Detection;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -54,8 +63,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-public class WordsCameraFragment extends Fragment {
+public class WordsCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener {
 
+    FirebaseFirestore db = FirebaseFirestore.getInstance();
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ListenableFuture<ExtensionsManager> extensionsManagerFuture;
 
@@ -63,14 +73,14 @@ public class WordsCameraFragment extends Fragment {
 
     private VideoCapture<Recorder> videoCapture;
 
+    private Bitmap bitmap;
     private Recording recording;
 
     private boolean isRecording = false;
     private boolean isFinishedDetecting = false;
 
-    // TODO: TEMPORARY
-    public static int captureCount = 0;
-
+    ObjectDetectorHelper objectDetectorHelper;
+    private Detection result;
     private HistoryItem capturedHistoryItem;
     private CameraSelector cameraSelector;
 
@@ -92,7 +102,10 @@ public class WordsCameraFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        requestPermissions();
+        objectDetectorHelper = new ObjectDetectorHelper(HistoryItem.SignType.LETTER, this.getContext(), 4, 0.4f, 3, this);
+
+        objectDetectorHelper.setup();
+        requestPermissionsAndStart();
 
         binding.recordingLabel.setVisibility(View.INVISIBLE);
         binding.viewMore.setVisibility(View.INVISIBLE);
@@ -135,7 +148,7 @@ public class WordsCameraFragment extends Fragment {
                 }
             });
 
-    void requestPermissions() {
+    void requestPermissionsAndStart() {
         requestPermissionsLauncher.launch(REQUIRED_PERMISSIONS);
     }
 
@@ -152,7 +165,27 @@ public class WordsCameraFragment extends Fragment {
                 .build();
         videoCapture = VideoCapture.withOutput(recorder);
 
-        Camera camera = cameraProvider.bindToLifecycle(this, selector, preview, videoCapture);
+        ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+                .setTargetRotation(binding.previewView.getDisplay().getRotation())
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .build();
+
+        imageAnalyzer.setAnalyzer(
+                ContextCompat.getMainExecutor(requireContext()),
+                image -> {
+                    bitmap = Bitmap.createBitmap(
+                            image.getWidth(),
+                            image.getHeight(),
+                            Bitmap.Config.ARGB_8888
+                    );
+                    detectHandSigns(image, bitmap);
+                    image.close();
+                }
+        );
+
+        Camera camera = cameraProvider.bindToLifecycle(this, selector, preview, videoCapture, imageAnalyzer);
     }
 
     void startCamera() {
@@ -184,6 +217,12 @@ public class WordsCameraFragment extends Fragment {
         }, ContextCompat.getMainExecutor(requireContext()));
     }
 
+    private void detectHandSigns(ImageProxy image, Bitmap bitmap) {
+        bitmap.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
+        int imageRotation = image.getImageInfo().getRotationDegrees();
+        objectDetectorHelper.runDetection(bitmap, imageRotation);
+    }
+
     private void startRecording() {
         isFinishedDetecting = false;
         binding.btnRecord.setImageResource(R.drawable.stop_recording_button);
@@ -191,10 +230,7 @@ public class WordsCameraFragment extends Fragment {
         binding.viewMore.setVisibility(View.INVISIBLE);
         binding.reverseHolder.setVisibility(View.INVISIBLE);
 
-        String[] resultsArr = getResources().getStringArray(R.array.history_results_word_array);
-        capturedHistoryItem = new HistoryItem(
-                resultsArr[captureCount],
-                HistoryItem.SignType.WORD);
+        capturedHistoryItem = new HistoryItem("", HistoryItem.SignType.WORD);
 
         String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
         String fileName = capturedHistoryItem.getSignType().getLabel() + "_" + currentDateTime + ".mp4";
@@ -217,6 +253,9 @@ public class WordsCameraFragment extends Fragment {
                 .start(ContextCompat.getMainExecutor(requireContext()), e -> {
                     if(e instanceof VideoRecordEvent.Finalize) {
                         capturedHistoryItem.setCapturedPath(((VideoRecordEvent.Finalize) e).getOutputResults().getOutputUri().getPath());
+                        capturedHistoryItem.setResult(result.getCategories().get(0).getLabel());
+                        HistoryModel.addItemtoHistory(FirebaseAuth.getInstance().getCurrentUser(), db, capturedHistoryItem);
+
                         Log.println(Log.INFO, "video_signconnect", "Saved Recording at: " + capturedHistoryItem.getCapturedPath());
                         Log.println(Log.INFO, "video_signconnect", "Recording Stopped");
                     }
@@ -230,11 +269,6 @@ public class WordsCameraFragment extends Fragment {
         binding.recordingLabel.setVisibility(View.INVISIBLE);
         binding.reverseHolder.setVisibility(View.VISIBLE);
         recording.stop();
-
-        captureCount++;
-        if(captureCount >= 2)
-            captureCount = 0;
-        HistoryActivity.historyItemList.add(capturedHistoryItem);
     }
 
     @OptIn(markerClass = ExperimentalCamera2Interop.class)
@@ -272,5 +306,23 @@ public class WordsCameraFragment extends Fragment {
         newIntent.putExtras(detailsBundle);
 
         startActivity(newIntent);
+    }
+
+    @Override
+    public void onResult(List<Detection> results, int imgWidth, int imgHeight) {
+        Log.println(Log.INFO, "results_debugger_info", results.toString());
+
+        // Only run when recording
+        if(!isRecording)
+            return;
+
+        float prevScore = result.getCategories().get(0).getScore();
+        float currentScore = 0;
+        if(results.size() > 0)
+        currentScore = results.get(0).getCategories().get(0).getScore();
+
+        if(currentScore > prevScore) {
+            result = results.get(0);
+        }
     }
 }

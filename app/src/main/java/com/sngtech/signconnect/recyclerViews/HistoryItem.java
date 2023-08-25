@@ -58,6 +58,11 @@ public class HistoryItem {
         return datetimeLearnt;
     }
 
+
+    public void setResult(String result) {
+        this.result = result;
+    }
+
     public SignType getSignType() {
         return signType;
     }

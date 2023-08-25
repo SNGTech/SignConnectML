@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
+import com.sngtech.signconnect.recyclerViews.HistoryItem;
 
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
@@ -23,6 +24,8 @@ public class ObjectDetectorHelper {
     public static final String LETTER_MODEL_NAME = "signletters_50epoch.tflite";
     public static final String WORD_MODEL_NAME = "";
 
+    private String chosenModelName;
+
     private Context context;
     private ObjectDetector objectDetector;
     private ObjectDetectorListener listener;
@@ -30,12 +33,14 @@ public class ObjectDetectorHelper {
     private float threshold;
     private int maxResults;
 
-    public ObjectDetectorHelper(Context context, int numThreads, float threshold, int maxResults, ObjectDetectorListener listener) {
+    public ObjectDetectorHelper(HistoryItem.SignType signType, Context context, int numThreads, float threshold, int maxResults, ObjectDetectorListener listener) {
         this.context = context;
         this.numThreads = numThreads;
         this.threshold = threshold;
         this.maxResults = maxResults;
         this.listener = listener;
+
+        chosenModelName = signType == HistoryItem.SignType.LETTER ? LETTER_MODEL_NAME : WORD_MODEL_NAME;
     }
 
     public void setup() {

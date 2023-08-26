@@ -19,14 +19,25 @@
 
     </androidx.camera.view.PreviewView>
 
+    <com.sngtech.signconnect.views.WordDetectionBoxView
+        android:id="@+id/boxWordDetectionView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/previewView"
+        app:layout_constraintEnd_toEndOf="@+id/previewView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <ImageButton
         android:id="@+id/btnRecord"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="-200dp"
         android:layout_marginBottom="75dp"
         android:background="#00FFFFFF"
         android:contentDescription="Record"
         android:src="@drawable/record_button"
+        android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="@+id/previewView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
@@ -37,6 +48,7 @@
         android:layout_height="16dp"
         android:layout_marginStart="15dp"
         android:layout_marginTop="15dp"
+        android:visibility="invisible"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:srcCompat="@drawable/recording_label" />
@@ -45,7 +57,8 @@
         android:id="@+id/viewMore"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:backgroundTint="#592424"
+        android:layout_marginBottom="25dp"
+        android:backgroundTint="#244059"
         android:text="View Details"
         android:textColor="#FFFFFF"
         android:textCursorDrawable="@color/white"
@@ -66,7 +79,7 @@
         app:contentPadding="10dp"
         app:layout_constraintBottom_toTopOf="@+id/viewMore"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/btnRecord">
+        app:layout_constraintStart_toStartOf="parent">
 
         <ImageButton
             android:id="@+id/btnReverseCamera"

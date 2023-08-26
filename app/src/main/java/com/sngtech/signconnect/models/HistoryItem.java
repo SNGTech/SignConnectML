@@ -1,4 +1,4 @@
-package com.sngtech.signconnect.recyclerViews;
+package com.sngtech.signconnect.models;
 
 import android.os.Build;
 
@@ -28,6 +28,7 @@ public class HistoryItem {
     String datetimeLearnt;
     SignType signType;
     String capturedPath;
+    int facing;
 
     public HistoryItem(String result, String datetimeLearnt, SignType signType, String capturedPath) {
         this.result = result;
@@ -58,6 +59,13 @@ public class HistoryItem {
         return datetimeLearnt;
     }
 
+    public void setFacing(int facing) {
+        this.facing = facing;
+    }
+
+    public int getFacing() {
+        return facing;
+    }
 
     public void setResult(String result) {
         this.result = result;

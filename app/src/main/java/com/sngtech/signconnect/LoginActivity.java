@@ -13,9 +13,14 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.databinding.ActivityLoginBinding;
+import com.sngtech.signconnect.models.User;
+import com.sngtech.signconnect.models.UserModel;
 
 public class LoginActivity extends AppCompatActivity {
+
+    FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     private ActivityLoginBinding binding;
     private FirebaseAuth mAuth;
@@ -38,12 +43,14 @@ public class LoginActivity extends AppCompatActivity {
         binding.button.setOnClickListener(ignore -> {
             String email = binding.editTextTextEmailAddress.getText().toString();
             String password = binding.editTextTextPassword.getText().toString();
+            boolean detBoxEnabled = binding.detBoxSwitch.isChecked();
 
             mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                 @Override
                 public void onComplete(@NonNull Task<AuthResult> task) {
                     if(task.isSuccessful()) {
                         Log.d("firebaseAuth", "loginUserWithEmail:success");
+                        UserModel.addUser(mAuth.getCurrentUser(), db, new User(email, password, detBoxEnabled));
 
                         Intent newIntent = new Intent(getApplicationContext(), MainActivity.class);
                         finishAffinity();

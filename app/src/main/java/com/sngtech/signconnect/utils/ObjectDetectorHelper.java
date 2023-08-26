@@ -5,7 +5,7 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
-import com.sngtech.signconnect.recyclerViews.HistoryItem;
+import com.sngtech.signconnect.models.HistoryItem;
 
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
@@ -22,7 +22,7 @@ import java.util.List;
 public class ObjectDetectorHelper {
 
     public static final String LETTER_MODEL_NAME = "signletters_50epoch.tflite";
-    public static final String WORD_MODEL_NAME = "";
+    public static final String WORD_MODEL_NAME = "signwords_efficientdet_lite2.tflite";
 
     private String chosenModelName;
 
@@ -73,7 +73,7 @@ public class ObjectDetectorHelper {
         detectorOptionsBuilder.setBaseOptions(baseOptionsBuilder.build());
 
         try {
-            objectDetector = ObjectDetector.createFromFileAndOptions(this.context, LETTER_MODEL_NAME, detectorOptionsBuilder.build());
+            objectDetector = ObjectDetector.createFromFileAndOptions(this.context, chosenModelName, detectorOptionsBuilder.build());
         } catch(IOException e) {
             Log.println(Log.ERROR, "object_detector_fail", "Failed to create Object Detector from Model");
         }

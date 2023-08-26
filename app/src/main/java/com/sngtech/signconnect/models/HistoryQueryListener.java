@@ -1,6 +1,4 @@
-package com.sngtech.signconnect.utils;
-
-import com.sngtech.signconnect.recyclerViews.HistoryItem;
+package com.sngtech.signconnect.models;
 
 import java.util.List;
 

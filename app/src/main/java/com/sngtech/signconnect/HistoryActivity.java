@@ -11,11 +11,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.databinding.ActivityHistoryBinding;
-import com.sngtech.signconnect.recyclerViews.HistoryItem;
+import com.sngtech.signconnect.models.HistoryItem;
 import com.sngtech.signconnect.recyclerViews.HistoryRecyclerViewAdapter;
 import com.sngtech.signconnect.recyclerViews.HistoryRecyclerViewListener;
-import com.sngtech.signconnect.utils.HistoryModel;
-import com.sngtech.signconnect.utils.HistoryQueryListener;
+import com.sngtech.signconnect.models.HistoryModel;
+import com.sngtech.signconnect.models.HistoryQueryListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +52,7 @@ public class HistoryActivity extends AppCompatActivity implements HistoryRecycle
         detailsBundle.putString("result", historyItemList.get(pos).getResult());
         detailsBundle.putString("datetime", historyItemList.get(pos).getDateTimeLearnt());
         detailsBundle.putString("capturedPath", historyItemList.get(pos).getCapturedPath());
+        detailsBundle.putInt("facing", historyItemList.get(pos).getFacing());
 
         newIntent.putExtras(detailsBundle);
         startActivity(newIntent);

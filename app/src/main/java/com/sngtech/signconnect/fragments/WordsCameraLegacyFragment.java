@@ -3,6 +3,7 @@ package com.sngtech.signconnect.fragments;
 import android.Manifest;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.hardware.camera2.CameraCharacteristics;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -18,17 +19,27 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
+import androidx.camera.camera2.interop.Camera2CameraInfo;
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop;
 import androidx.camera.core.AspectRatio;
+import androidx.camera.core.Camera;
+import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.extensions.ExtensionMode;
 import androidx.camera.extensions.ExtensionsManager;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.video.FileOutputOptions;
+import androidx.camera.video.Quality;
+import androidx.camera.video.QualitySelector;
+import androidx.camera.video.Recorder;
+import androidx.camera.video.Recording;
+import androidx.camera.video.VideoCapture;
+import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -41,9 +52,6 @@ import com.sngtech.signconnect.SignDetailsActivity;
 import com.sngtech.signconnect.databinding.FragmentWordsCameraBinding;
 import com.sngtech.signconnect.models.HistoryItem;
 import com.sngtech.signconnect.models.HistoryModel;
-import com.sngtech.signconnect.models.User;
-import com.sngtech.signconnect.models.UserModel;
-import com.sngtech.signconnect.models.UserQueryListener;
 import com.sngtech.signconnect.utils.ObjectDetectorHelper;
 
 import org.tensorflow.lite.task.gms.vision.detector.Detection;
@@ -55,33 +63,35 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-public class WordsCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener, UserQueryListener {
+public class WordsCameraLegacyFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener {
 
     FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-    private static final String[] REQUIRED_PERMISSIONS = new String[] {
-            android.Manifest.permission.CAMERA,
-            android.Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.READ_MEDIA_IMAGES,
-            Manifest.permission.READ_MEDIA_VIDEO
-    };
-
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ListenableFuture<ExtensionsManager> extensionsManagerFuture;
 
     private FragmentWordsCameraBinding binding;
 
-    private ImageCapture imageCapture;
+    private VideoCapture<Recorder> videoCapture;
 
-    private ObjectDetectorHelper objectDetectorHelper;
     private Bitmap bitmap;
+    private Recording recording;
 
+    private boolean isRecording = false;
+    private boolean isFinishedDetecting = false;
+
+    ObjectDetectorHelper objectDetectorHelper;
+    private Detection result;
+    private HistoryItem capturedHistoryItem;
     private CameraSelector cameraSelector;
 
-    Detection result;
+    private static final String[] REQUIRED_PERMISSIONS = new String[] {
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_MEDIA_VIDEO
+    };
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         binding = FragmentWordsCameraBinding.inflate(inflater, container, false);
 
@@ -92,19 +102,29 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
-        UserModel.queryUser(FirebaseAuth.getInstance().getCurrentUser(), db, this);
-
         objectDetectorHelper = new ObjectDetectorHelper(HistoryItem.SignType.WORD, this.getContext(), 4, 0.4f, 3, this);
 
         objectDetectorHelper.setup();
         requestPermissionsAndStart();
         binding.boxWordDetectionView.clear();
 
-        binding.viewMore.setOnClickListener(ignore -> {
-            onCapture();
+        binding.recordingLabel.setVisibility(View.INVISIBLE);
+        binding.viewMore.setVisibility(View.INVISIBLE);
+
+        binding.btnRecord.setOnClickListener(ignore -> {
+            if(!isRecording) {
+                startRecording();
+            }
+            else {
+                stopRecording();
+            }
+            if(isFinishedDetecting) {
+                binding.viewMore.setVisibility(View.VISIBLE);
+            }
+            isRecording = !isRecording;
         });
 
+        binding.viewMore.setOnClickListener(ignore -> switchToDetailsActivity(capturedHistoryItem));
         binding.btnReverseCamera.setOnClickListener(ignore -> {
             switchCameraFacing();
             Animation reverseBtnAnim = AnimationUtils.loadAnimation(getContext(), R.anim.reverse_camera_btn);
@@ -138,10 +158,13 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
         preview.setSurfaceProvider(binding.previewView.getSurfaceProvider());
         binding.previewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
 
-        imageCapture = new ImageCapture.Builder()
-                .setTargetRotation(binding.previewView.getDisplay().getRotation())
-                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+        QualitySelector qualitySelector = getBestQuality();
+
+        Recorder recorder = new Recorder.Builder()
+                .setExecutor(ContextCompat.getMainExecutor(requireContext()))
+                .setQualitySelector(qualitySelector)
                 .build();
+        videoCapture = VideoCapture.withOutput(recorder);
 
         ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
@@ -163,13 +186,7 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
                 }
         );
 
-        cameraProvider.bindToLifecycle(this, selector, imageAnalyzer, preview, imageCapture);
-    }
-
-    private void detectHandSigns(ImageProxy image, Bitmap bitmap) {
-        bitmap.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
-        int imageRotation = image.getImageInfo().getRotationDegrees();
-        objectDetectorHelper.runDetection(bitmap, imageRotation);
+        Camera camera = cameraProvider.bindToLifecycle(this, selector, preview, imageAnalyzer);
     }
 
     void startCamera() {
@@ -201,38 +218,73 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
         }, ContextCompat.getMainExecutor(requireContext()));
     }
 
-    private void onCapture() {
-        HistoryItem item = new HistoryItem(result.getCategories().get(0).getLabel(), HistoryItem.SignType.WORD);
-        item.setFacing(cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA ? 0 : 1);
+    private void detectHandSigns(ImageProxy image, Bitmap bitmap) {
+        bitmap.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
+        int imageRotation = image.getImageInfo().getRotationDegrees();
+        objectDetectorHelper.runDetection(bitmap, imageRotation);
+    }
+
+    private void startRecording() {
+        isFinishedDetecting = false;
+        binding.btnRecord.setImageResource(R.drawable.stop_recording_button);
+        binding.recordingLabel.setVisibility(View.VISIBLE);
+        binding.viewMore.setVisibility(View.INVISIBLE);
+        binding.reverseHolder.setVisibility(View.INVISIBLE);
+
+        capturedHistoryItem = new HistoryItem("", HistoryItem.SignType.WORD);
 
         String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
-        String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
+        String fileName = capturedHistoryItem.getSignType().getLabel() + "_" + currentDateTime + ".mp4";
 
         File path = Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES);
+                Environment.DIRECTORY_DCIM);
 
         try {
             path.mkdirs();
         } catch(Exception e) {
-            Log.println(Log.WARN, "warning", "Pictures directory already exists!");
+            Log.println(Log.WARN, "warning", "DCIM directory already exists!");
         }
 
-        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(new File(getContext().getExternalFilesDir(
-                Environment.DIRECTORY_PICTURES), fileName)).build();
-        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
-            @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                item.setCapturedPath(outputFileResults.getSavedUri().getPath());
-                HistoryModel.addItemtoHistory(FirebaseAuth.getInstance().getCurrentUser(), db, item);
+        FileOutputOptions outputFileOptions = new FileOutputOptions.Builder(new File(getContext().getExternalFilesDir(
+                Environment.DIRECTORY_DCIM), fileName)).build();
 
-                switchToDetailsActivity(item);
-            }
+        recording = videoCapture
+                .getOutput()
+                .prepareRecording(getContext(), outputFileOptions)
+                .start(ContextCompat.getMainExecutor(requireContext()), e -> {
+                    if(e instanceof VideoRecordEvent.Finalize) {
+                        capturedHistoryItem.setCapturedPath(((VideoRecordEvent.Finalize) e).getOutputResults().getOutputUri().getPath());
+                        capturedHistoryItem.setResult(result.getCategories().get(0).getLabel());
+                        HistoryModel.addItemtoHistory(FirebaseAuth.getInstance().getCurrentUser(), db, capturedHistoryItem);
 
-            @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-                Toast.makeText(getContext(), "Unknown Error: Unable to capture image for detection!", Toast.LENGTH_SHORT).show();
-            }
-        });
+                        Log.println(Log.INFO, "video_signconnect", "Saved Recording at: " + capturedHistoryItem.getCapturedPath());
+                        Log.println(Log.INFO, "video_signconnect", "Recording Stopped");
+                    }
+                });
+        Log.println(Log.INFO, "video_signconnect", "Recording Started");
+    }
+
+    private void stopRecording() {
+        isFinishedDetecting = true;
+        binding.btnRecord.setImageResource(R.drawable.record_button);
+        binding.recordingLabel.setVisibility(View.INVISIBLE);
+        binding.reverseHolder.setVisibility(View.VISIBLE);
+        recording.stop();
+    }
+
+    @OptIn(markerClass = ExperimentalCamera2Interop.class)
+    private QualitySelector getBestQuality() {
+        CameraInfo cameraInfo = null;
+        int cameraFacing = cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA ? 0 : 1;
+        try {
+            cameraInfo = cameraProviderFuture.get().getAvailableCameraInfos().stream()
+                    .filter(cam -> Camera2CameraInfo.from(cam).getCameraCharacteristic(CameraCharacteristics.LENS_FACING) == cameraFacing).findFirst().get();
+        } catch(InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+
+        List<Quality> supportedQualities = QualitySelector.getSupportedQualities(cameraInfo);
+        return QualitySelector.from(supportedQualities.get(0));
     }
 
     private void switchCameraFacing() {
@@ -251,7 +303,7 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
         detailsBundle.putString("result", item.getResult());
         detailsBundle.putString("datetime", item.getDateTimeLearnt());
         detailsBundle.putString("capturedPath", item.getCapturedPath());
-        detailsBundle.putInt("facing", item.getFacing());
+        detailsBundle.putInt("facing", cameraSelector == CameraSelector.DEFAULT_FRONT_CAMERA ? 0 : 1);
         newIntent.putExtras(detailsBundle);
 
         startActivity(newIntent);
@@ -259,27 +311,26 @@ public class WordsCameraFragment extends Fragment implements ObjectDetectorHelpe
 
     @Override
     public void onResult(List<Detection> results, int imgWidth, int imgHeight) {
-        Log.println(Log.INFO, "results_debugger_info", results.toString());
+        //Log.println(Log.INFO, "results_debugger_info", results.toString());
+
+        // Only run when recording
+//        if(!isRecording)
+//            return;
         getActivity().runOnUiThread(() -> {
-            if (results.isEmpty())
-                binding.viewMore.setVisibility(View.INVISIBLE);
-            else
-                binding.viewMore.setVisibility(View.VISIBLE);
+            //float prevScore = 0;
+            //float currentScore = 0;
+            if(results.size() > 0) {
+                //if(result != null)
+                    //prevScore = result.getCategories().get(0).getScore();
+                //currentScore = results.get(0).getCategories().get(0).getScore();
+                binding.boxWordDetectionView.setResults(results, imgWidth, imgHeight);
+                binding.boxWordDetectionView.invalidate();
 
-            if(results.size() > 0)
-                result = results.get(0);
-            binding.boxWordDetectionView.setResults(results, imgWidth, imgHeight);
-            binding.boxWordDetectionView.invalidate();
+//                if(currentScore > prevScore) {
+//                    result = results.get(0);
+//                }
+            }
         });
-    }
 
-    @Override
-    public void onQuerySuccess(User user) {
-        boolean detBoxEnabled = user.isDetBoxEnabled();
-
-        if(detBoxEnabled)
-            binding.boxWordDetectionView.setVisibility(View.VISIBLE);
-        else
-            binding.boxWordDetectionView.setVisibility(View.INVISIBLE);
     }
 }

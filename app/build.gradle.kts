@@ -86,5 +86,5 @@ dependencies {
     // When using the BoM, you don't specify versions in Firebase library dependencies
     implementation("com.google.firebase:firebase-firestore")
 
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.0.1")
+    implementation("org.apache.commons:commons-lang3:3.0")
 }

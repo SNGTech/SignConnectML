@@ -2,11 +2,12 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="light_primary">#F26F69</color>
-    <color name="dark_primary">#F26F69</color>
-    <color name="text_account">#CCB3B3</color>
-    <color name="historyViewTypeBg">#5E2C29</color>
-    <color name="historyViewCardBg">#2E1E1E</color>
+    <color name="light_primary">#2596BE</color>
+    <color name="dark_primary">#2596BE</color>
+    <color name="track_disabled">#AAAAAA</color>
+    <color name="text_account">#4C677C</color>
+    <color name="historyViewTypeBg">#29435E</color>
+    <color name="historyViewCardBg">#1E282E</color>
     <color name="bounding_box_color">#FF5722</color>
     <color name="detection_box_color">#2596BE</color>
 </resources>

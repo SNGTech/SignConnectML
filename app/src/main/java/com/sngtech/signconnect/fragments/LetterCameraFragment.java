@@ -36,8 +36,11 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.sngtech.signconnect.SignDetailsActivity;
 import com.sngtech.signconnect.databinding.FragmentLettersCameraBinding;
-import com.sngtech.signconnect.recyclerViews.HistoryItem;
-import com.sngtech.signconnect.utils.HistoryModel;
+import com.sngtech.signconnect.models.HistoryItem;
+import com.sngtech.signconnect.models.HistoryModel;
+import com.sngtech.signconnect.models.User;
+import com.sngtech.signconnect.models.UserModel;
+import com.sngtech.signconnect.models.UserQueryListener;
 import com.sngtech.signconnect.utils.ObjectDetectorHelper;
 
 import org.tensorflow.lite.task.gms.vision.detector.Detection;
@@ -50,7 +53,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
 @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-public class LetterCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener {
+public class LetterCameraFragment extends Fragment implements ObjectDetectorHelper.ObjectDetectorListener, UserQueryListener {
 
     FirebaseFirestore db = FirebaseFirestore.getInstance();
 
@@ -87,6 +90,8 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        UserModel.queryUser(FirebaseAuth.getInstance().getCurrentUser(), db, this);
 
         objectDetectorHelper = new ObjectDetectorHelper(HistoryItem.SignType.LETTER, this.getContext(), 4, 0.4f, 3, this);
 
@@ -189,6 +194,7 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
 
     private void onCapture() {
         HistoryItem item = new HistoryItem(result.getCategories().get(0).getLabel(), HistoryItem.SignType.LETTER);
+        item.setFacing(1);
 
         String currentDateTime = LocalDateTime.now().toString().replace(":", "-").replace(".", "_");
         String fileName = item.getSignType().getLabel() + "_" + currentDateTime;
@@ -227,6 +233,7 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
         detailsBundle.putString("result", item.getResult());
         detailsBundle.putString("datetime", item.getDateTimeLearnt());
         detailsBundle.putString("capturedPath", item.getCapturedPath());
+        detailsBundle.putInt("facing", 1);
         newIntent.putExtras(detailsBundle);
 
         startActivity(newIntent);
@@ -246,5 +253,15 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
             binding.boxDetectionView.setResults(results, imgWidth, imgHeight);
             binding.boxDetectionView.invalidate();
         });
+    }
+
+    @Override
+    public void onQuerySuccess(User user) {
+        boolean detBoxEnabled = user.isDetBoxEnabled();
+
+        if(detBoxEnabled)
+            binding.boxDetectionView.setVisibility(View.VISIBLE);
+        else
+            binding.boxDetectionView.setVisibility(View.INVISIBLE);
     }
 }

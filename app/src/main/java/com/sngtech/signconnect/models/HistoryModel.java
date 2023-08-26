@@ -1,4 +1,4 @@
-package com.sngtech.signconnect.utils;
+package com.sngtech.signconnect.models;
 
 import android.util.Log;
 
@@ -12,7 +12,6 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
-import com.sngtech.signconnect.recyclerViews.HistoryItem;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,8 +53,10 @@ public class HistoryModel {
                     HistoryItem.SignType signType = HistoryItem.SignType.valueOf((String) field.get("signType"));
                     String dataTimeLearnt = (String) field.get("dateTimeLearnt");
                     String capturedPath = (String) field.get("capturedPath");
+                    long facing = (long) field.get("facing");
 
                     HistoryItem item = new HistoryItem(result, dataTimeLearnt, signType, capturedPath);
+                    item.setFacing((int) facing);
                     queriedItems.add(item);
                 }
                 listener.onQuerySuccess(queriedItems);

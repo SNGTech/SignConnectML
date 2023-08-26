@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="text_account">#CCB3B3</color>
-    <color name="historyViewTypeBg">#5E2C29</color>
-    <color name="historyViewCardBg">#2E1E1E</color>
+    <color name="text_account">#B3C1CC</color>
+    <color name="historyViewTypeBg">#29435E</color>
+    <color name="historyViewCardBg">#1E282E</color>
     <color name="bounding_box_color">#FF5722</color>
 </resources>

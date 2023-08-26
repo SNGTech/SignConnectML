@@ -11,7 +11,8 @@ import androidx.fragment.app.Fragment;
 
 import com.sngtech.signconnect.databinding.ActivitySignDetailsBinding;
 import com.sngtech.signconnect.fragments.DetailsCapturedImageFragment;
-import com.sngtech.signconnect.fragments.DetailsCapturedVideoFragment;
+
+import org.apache.commons.lang3.text.WordUtils;
 
 import java.util.Locale;
 
@@ -36,7 +37,7 @@ public class SignDetailsActivity extends AppCompatActivity {
         String signType = detailsBundle.getString("signType");
         String typeText = signType.equals("L") ? "Letter: " : "Word: ";
         String resultText = detailsBundle.getString("result");
-        String resultFullText = typeText + resultText;
+        String resultFullText = WordUtils.capitalizeFully((typeText + resultText).replace("-", " "));
         binding.capturedResult.setText(resultFullText);
 
         String datetimeText = "Captured on: " + detailsBundle.getString("datetime");
@@ -63,8 +64,8 @@ public class SignDetailsActivity extends AppCompatActivity {
             replaceFragment(new DetailsCapturedImageFragment());
         }
         else if(signType.equals("W")) {
-            binding.capturedSubtitle.setText("Captured Video");
-            replaceFragment(new DetailsCapturedVideoFragment());
+            binding.capturedSubtitle.setText("Captured Image");
+            replaceFragment(new DetailsCapturedImageFragment());
         }
     }
 

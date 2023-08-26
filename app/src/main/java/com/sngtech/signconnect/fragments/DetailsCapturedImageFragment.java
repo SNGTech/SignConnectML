@@ -37,5 +37,9 @@ public class DetailsCapturedImageFragment extends Fragment {
         Log.println(Log.INFO, "file_signconnect", "Saved image file at: " + path);
         Bitmap bitmapBuffer = BitmapFactory.decodeFile(path);
         binding.capturedImageView.setImageBitmap(bitmapBuffer);
+
+        if(bundle.getInt("facing") == 0) {
+            binding.capturedImageView.setScaleX(-1.0f);
+        }
     }
 }

@@ -10,6 +10,9 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.sngtech.signconnect.R;
+import com.sngtech.signconnect.models.HistoryItem;
+
+import org.apache.commons.lang3.text.WordUtils;
 
 import java.util.List;
 
@@ -37,7 +40,7 @@ public class HistoryRecyclerViewAdapter extends RecyclerView.Adapter<HistoryRecy
     @Override
     public void onBindViewHolder(@NonNull HistoryRecyclerViewAdapter.HistoryViewHolder holder, int position) {
         holder.signType.setText(historyItems.get(position).getSignType().getLabel());
-        holder.resultText.setText(historyItems.get(position).getResult());
+        holder.resultText.setText(WordUtils.capitalizeFully(historyItems.get(position).getResult().replace("-", " ")));
         holder.dateTimeText.setText(historyItems.get(position).getDateTimeLearnt());
     }
 

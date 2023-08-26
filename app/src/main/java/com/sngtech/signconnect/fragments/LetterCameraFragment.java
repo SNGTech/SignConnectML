@@ -126,9 +126,10 @@ public class LetterCameraFragment extends Fragment implements ObjectDetectorHelp
     }
 
     void bindUseCases(@NonNull ProcessCameraProvider cameraProvider, @NonNull CameraSelector selector) {
-        Preview preview = new Preview.Builder().build();
+        Preview preview = new Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build();
         preview.setSurfaceProvider(binding.previewView.getSurfaceProvider());
         binding.previewView.setImplementationMode(PreviewView.ImplementationMode.PERFORMANCE);
+        binding.previewView.setScaleType(PreviewView.ScaleType.FILL_START);
 
         imageCapture = new ImageCapture.Builder()
                 .setTargetRotation(binding.previewView.getDisplay().getRotation())

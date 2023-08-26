@@ -42,8 +42,10 @@ public class HistoryModel {
             @Override
             public void onSuccess(DocumentSnapshot documentSnapshot) {
                 ArrayList<Object> array = (ArrayList<Object>) documentSnapshot.get("historyItems");
-                if(array == null)
+                if(array == null) {
+                    listener.onQueryFailed();
                     return;
+                }
 
                 List<HistoryItem> queriedItems = new ArrayList<>();
 

@@ -63,10 +63,17 @@ public class HistoryActivity extends AppCompatActivity implements HistoryRecycle
         historyItemList.clear();
         historyItemList.addAll(queriedItems);
 
+        binding.loadingSpinner.setVisibility(View.INVISIBLE);
+
         // Show Recycler View
         RecyclerView recyclerView = binding.historyRecyclerView;
         adapter = new HistoryRecyclerViewAdapter(getApplicationContext(), historyItemList, this);
         recyclerView.setAdapter(adapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+    @Override
+    public void onQueryFailed() {
+        binding.loadingSpinner.setVisibility(View.INVISIBLE);
     }
 }
